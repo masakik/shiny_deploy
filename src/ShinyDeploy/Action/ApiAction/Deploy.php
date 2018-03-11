@@ -5,7 +5,7 @@ use ShinyDeploy\Core\Crypto\PasswordCrypto;
 use ShinyDeploy\Domain\Database\ApiKeys;
 use ShinyDeploy\Domain\Database\DeploymentLogs;
 use ShinyDeploy\Domain\Database\Deployments;
-use ShinyDeploy\Domain\Deployment;
+use ShinyDeploy\Domain\Deployment\Deployment;
 use ShinyDeploy\Responder\NullResponder;
 
 class Deploy extends ApiAction

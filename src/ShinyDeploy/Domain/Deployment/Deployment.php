@@ -1,23 +1,32 @@
 <?php
-namespace ShinyDeploy\Domain;
+namespace ShinyDeploy\Domain\Deployment;
 
+use League\Event\EmitterTrait;
 use RuntimeException;
 use ShinyDeploy\Core\Domain;
 use ShinyDeploy\Core\Responder;
 use ShinyDeploy\Domain\Database\Repositories;
 use ShinyDeploy\Domain\Database\Servers;
+use ShinyDeploy\Domain\Repository;
+use ShinyDeploy\Domain\Server\Server;
 use ShinyDeploy\Exceptions\ConnectionException;
 
 class Deployment extends Domain
 {
+    // Deployment supports events:
+    use EmitterTrait;
+
     /** @var \ShinyDeploy\Domain\Server\SftpServer|\ShinyDeploy\Domain\Server\SshServer $server */
     protected $server;
 
     /** @var Repository $repository */
     protected $repository;
 
+    /** @var TaskManager $taskManager */
+    protected $taskManager;
+
     /** @var \ShinyDeploy\Responder\WsLogResponder $logResponder */
-    protected $logResponder;
+    public $logResponder;
 
     /** @var array $changedFiles */
     protected $changedFiles = [];
@@ -25,9 +34,8 @@ class Deployment extends Domain
     /** @var string $encryptionKey */
     protected $encryptionKey;
 
-    /** @var array $tasksToRun */
-    protected $tasksToRun = [];
-
+    /** @var bool $listMode */
+    protected $listMode = false;
 
     /**
      * Sets the encryption key.
@@ -49,13 +57,24 @@ class Deployment extends Domain
      */
     public function init(array $data) : void
     {
+        // Set data
         $this->data = $data;
+
+        // Initialize event emitter:
+        $emitter = $this->getEmitter();
+
+        // Initialize target/server:
         $servers = new Servers($this->config, $this->logger);
         $servers->setEnryptionKey($this->encryptionKey);
+        $this->server = $servers->getServer($data['server_id']);
+
+        // Initialize source/repository:
         $repositories = new Repositories($this->config, $this->logger);
         $repositories->setEnryptionKey($this->encryptionKey);
-        $this->server = $servers->getServer($data['server_id']);
         $this->repository = $repositories->getRepository($data['repository_id']);
+
+        // Initialize task manager:
+        $this->taskManager = new TaskManager($this->config, $this->logger, $emitter);
     }
 
     /**
@@ -77,7 +96,27 @@ class Deployment extends Domain
      */
     public function setTasksToRun(array $tasksToRun) : void
     {
-        $this->tasksToRun = $tasksToRun;
+        $this->taskManager->setSelectedTasks($tasksToRun);
+    }
+
+    /**
+     * Returns deployments target server object.
+     *
+     * @return Server
+     */
+    public function getServer(): Server
+    {
+        return $this->server;
+    }
+
+    /**
+     * Returns deployments source repository.
+     *
+     * @return Repository
+     */
+    public function getRepository(): Repository
+    {
+        return $this->repository;
     }
 
     /**
@@ -91,6 +130,16 @@ class Deployment extends Domain
     }
 
     /**
+     * Checks if deploynent is in list-mode or not.
+     *
+     * @return bool
+     */
+    public function inListMode(): bool
+    {
+        return $this->listMode;
+    }
+
+    /**
      * Executes an actual deployment.
      *
      * @param bool $listMode
@@ -100,6 +149,8 @@ class Deployment extends Domain
      */
     public function deploy(bool $listMode = false) : bool
     {
+        $this->listMode = $listMode;
+
         if (empty($this->data)) {
             throw new RuntimeException('Deployment data not found. Initialization missing?');
         }
@@ -110,7 +161,7 @@ class Deployment extends Domain
             throw new RuntimeException('Repository object not found');
         }
 
-        $this->filterTasks();
+        $this->emit('deployment.onStart', $this);
 
         $this->logResponder->log('Checking prerequisites...');
         if ($this->checkPrerequisites() === false) {
@@ -120,7 +171,7 @@ class Deployment extends Domain
 
         $this->logResponder->log('Switching branch...');
         if ($this->switchBranch() === false) {
-            $this->logResponder->error('Could not swtich to selected branch. Aborting job.');
+            $this->logResponder->error('Could not switch to selected branch. Aborting job.');
             return false;
         }
 
@@ -130,13 +181,7 @@ class Deployment extends Domain
             return false;
         }
 
-        if ($listMode === false) {
-            $this->logResponder->log('Running tasks...');
-            if ($this->runTasks('before') === false) {
-                $this->logResponder->error('Running tasks failed. Aborting job.');
-                return false;
-            }
-        }
+        $this->emit('deployment.onAfterLocalRepoPrepared', $this);
 
         $this->logResponder->log('Estimating remote revision...');
         $remoteRevision = $this->getRemoteRevision();
@@ -188,11 +233,7 @@ class Deployment extends Domain
             return false;
         }
 
-        $this->logResponder->log('Running tasks...');
-        if ($listMode === false && $this->runTasks('after') === false) {
-            $this->logResponder->error('Running tasks failed. Aborting job.');
-            return false;
-        }
+        $this->emit('deployment.onAfterDeploymentCompleted', $this);
 
         return true;
     }
@@ -253,121 +294,11 @@ class Deployment extends Domain
     }
 
     /**
-     * Removes tasks disabled via GUI or which are not enabled by default.
-     *
-     * @return bool
-     */
-    protected function filterTasks() : bool
-    {
-        if (empty($this->data['tasks'])) {
-            return true;
-        }
-        if (empty($this->tasksToRun)) {
-            return $this->filterNonDefaultTasks();
-        } else {
-            return $this->filterNonSelectedTasks();
-        }
-    }
-
-    /**
-     * Removes tasks from task-list not enabled by default.
-     *
-     * @return bool
-     */
-    private function filterNonDefaultTasks() : bool
-    {
-        foreach ($this->data['tasks'] as $i => $task) {
-            if ((int)$task['run_by_default'] !== 1) {
-                unset($this->data['tasks'][$i]);
-            }
-        }
-        array_merge($this->data['tasks'], []);
-        return true;
-    }
-
-    /**
-     * Removes tasks from task-list not enabled/selected in GUI.
-     *
-     * @return bool
-     */
-    private function filterNonSelectedTasks() : bool
-    {
-        // noting to do if task-filter is empty
-        if (empty($this->tasksToRun)) {
-            return true;
-        }
-
-        // collect task-ids to remove
-        $tasksToRemove = [];
-        foreach ($this->tasksToRun as $taskId => $taskEnabled) {
-            if ((int)$taskEnabled === 1) {
-                continue;
-            }
-            array_push($tasksToRemove, $taskId);
-        }
-
-        // remove tasks
-        foreach ($this->data['tasks'] as $i => $task) {
-            if (in_array($task['id'], $tasksToRemove)) {
-                unset($this->data['tasks'][$i]);
-            }
-        }
-        array_merge($this->data['tasks'], []);
-        return true;
-    }
-
-    /**
-     * Runs user defined tasks on target server.
-     *
-     * @param string $type
-     * @return boolean
-     * @throws \ZMQException
-     */
-    protected function runTasks(string $type) : bool
-    {
-        // Skip if no tasks defined
-        if (empty($this->data['tasks'])) {
-            return true;
-        }
-
-        // Skip if no tasks of given type defined:
-        $typeTasks = [];
-        foreach ($this->data['tasks'] as $task) {
-            if ($task['type'] === $type) {
-                array_push($typeTasks, $task);
-            }
-        }
-        if (empty($typeTasks)) {
-            return true;
-        }
-
-        // Skip if server is not ssh capable:
-        if ($this->server->getType() !== 'ssh') {
-            $this->logResponder->danger('Server not of type SSH. Skipping tasks.');
-            return false;
-        }
-
-        // Execute tasks on server:
-        $remotePath = $this->getRemotePath();
-        foreach ($typeTasks as $task) {
-            $command = 'cd ' . $remotePath . ' && ' . $task['command'];
-            $this->logResponder->info('Executing task: ' . $task['name']);
-            $response = $this->server->executeCommand($command);
-            if ($response === false) {
-                $this->logResponder->danger('Task failed.');
-            } else {
-                $this->logResponder->log($response);
-            }
-        }
-        return true;
-    }
-
-    /**
      * Get the deployment path on target server.
      *
      * @return string
      */
-    protected function getRemotePath() : string
+    public function getRemotePath() : string
     {
         $serverRoot = $this->server->getRootPath();
         $serverRoot = rtrim($serverRoot, '/');

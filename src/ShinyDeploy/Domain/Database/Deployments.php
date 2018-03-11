@@ -2,7 +2,7 @@
 namespace ShinyDeploy\Domain\Database;
 
 use RuntimeException;
-use ShinyDeploy\Domain\Deployment;
+use ShinyDeploy\Domain\Deployment\Deployment;
 use ShinyDeploy\Exceptions\DatabaseException;
 use ShinyDeploy\Traits\CryptableDomain;
 
