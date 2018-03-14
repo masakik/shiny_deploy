@@ -5,14 +5,15 @@
         .module('shinyDeploy')
         .controller('DeploymentsEditController', DeploymentsEditController);
 
-    DeploymentsEditController.$inject = ['$location', '$routeParams', 'deploymentsService', 'alertsService'];
+    DeploymentsEditController.$inject = ['mode', '$location', '$routeParams', 'deploymentsService', 'alertsService'];
 
-    function DeploymentsEditController($location, $routeParams, deploymentsService, alertsService) {
+    function DeploymentsEditController(mode, $location, $routeParams, deploymentsService, alertsService) {
         /*jshint validthis: true */
         var vm = this;
 
         // Properties
-        vm.isEdit = true;
+        vm.isAdd = false;
+        vm.isEdit = false;
         vm.servers = {};
         vm.repositories = {};
         vm.branches = {};
@@ -22,6 +23,7 @@
         vm.apiUrl = '';
 
         // Methods
+        vm.addDeployment = addDeployment;
         vm.updateDeployment = updateDeployment;
         vm.refreshBranches = refreshBranches;
         vm.showAddTask = showAddTask;
@@ -38,6 +40,9 @@
          * Loads data required for edit deployment form.
          */
         function init() {
+            vm.isAdd = (mode === 'add');
+            vm.isEdit = (mode === 'edit');
+
             // load servers:
             deploymentsService.getServers().then(function (data) {
                 vm.servers = data;
@@ -52,13 +57,33 @@
                 console.log('Error fetching repositories: ' + reason);
             });
 
+
+            if (vm.isEdit === false) {
+                return;
+            }
+
             // load deployment:
             var deploymentId = ($routeParams.deploymentId) ? parseInt($routeParams.deploymentId) : 0;
-            deploymentsService.getDeploymentData(deploymentId).then(function(data) {
+            deploymentsService.getDeploymentData(deploymentId).then(function (data) {
                 vm.deployment = data;
                 vm.refreshBranches();
-            }, function(reason) {
+            }, function (reason) {
                 $location.path('/deployments');
+            });
+        }
+
+        /**
+         * Requests add-deployment action on project backend.
+         */
+        function addDeployment() {
+            vm.deployment.server_id = vm.deployment.server.id;
+            vm.deployment.repository_id = vm.deployment.repository.id;
+            vm.deployment.branch = vm.deployment.branchObj.id;
+            deploymentsService.addDeployment(vm.deployment).then(function(data) {
+                $location.path('/deployments');
+                alertsService.queueAlert('Deployment successfully added.', 'success');
+            }, function(reason) {
+                alertsService.pushAlert(reason, 'warning');
             });
         }
 
