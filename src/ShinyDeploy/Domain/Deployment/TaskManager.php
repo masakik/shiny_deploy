@@ -8,6 +8,7 @@ use League\Event\EmitterTrait;
 use League\Event\Event;
 use Noodlehaus\Config;
 use ShinyDeploy\Core\Domain;
+use ShinyDeploy\Domain\Deployment\Tasks\TaskInterface;
 use ShinyDeploy\Domain\Server\SshServer;
 
 class TaskManager extends Domain

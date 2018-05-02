@@ -20,9 +20,9 @@
                                 <select name="task_identifier"
                                         id="deployment-task_identifier"
                                         class="form-control"
-                                        data-ng-model="vm.task.identifier"
+                                        data-ng-model="vm.task.id"
+                                        data-ng-options="task.name for task in vm.tasks track by task.id"
                                         required>
-                                    <option value="">foo</option>
                                 </select>
                             </div>
                         </div>

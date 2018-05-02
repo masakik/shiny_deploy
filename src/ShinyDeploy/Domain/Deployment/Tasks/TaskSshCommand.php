@@ -8,4 +8,9 @@ class TaskSshCommand extends Task
     {
         $this->identifier = 'ssh_command';
     }
+
+    public function setName(): void
+    {
+        $this->name = "SSH Command";
+    }
 }

@@ -16,6 +16,7 @@
         vm.isEdit = false;
         vm.servers = {};
         vm.repositories = {};
+        vm.tasks = {};
         vm.branches = {};
         vm.deployment = {};
         vm.task = {};
@@ -43,33 +44,13 @@
             vm.isAdd = (mode === 'add');
             vm.isEdit = (mode === 'edit');
 
-            // load servers:
-            deploymentsService.getServers().then(function (data) {
-                vm.servers = data;
-            }, function(reason) {
-                console.log('Error fetching servers: ' + reason);
-            });
+            loadServers();
+            loadRepositories();
+            loadTasks();
 
-            // load repositories:
-            deploymentsService.getRepositories().then(function (data) {
-                vm.repositories = data;
-            }, function(reason) {
-                console.log('Error fetching repositories: ' + reason);
-            });
-
-
-            if (vm.isEdit === false) {
-                return;
+            if (vm.isEdit) {
+                loadDeployment()
             }
-
-            // load deployment:
-            var deploymentId = ($routeParams.deploymentId) ? parseInt($routeParams.deploymentId) : 0;
-            deploymentsService.getDeploymentData(deploymentId).then(function (data) {
-                vm.deployment = data;
-                vm.refreshBranches();
-            }, function (reason) {
-                $location.path('/deployments');
-            });
         }
 
         /**
@@ -175,6 +156,55 @@
                 vm.apiUrl = webhookUrl;
             }, function (reason) {
                 alertsService.pushAlert(reason, 'warning');
+            });
+        }
+
+
+
+        /*** Private Methods ******************************************************************************************/
+
+
+
+        /**
+         * Requests a list of available servers from backend.
+         */
+        function loadServers() {
+            deploymentsService.getServers().then(function (data) {
+                vm.servers = data;
+            }, function(reason) {
+                console.error('Error fetching servers: ' + reason);
+            });
+        }
+
+        /**
+         * Requests a list of available repositories from backend.
+         */
+        function loadRepositories() {
+            deploymentsService.getRepositories().then(function (data) {
+                vm.repositories = data;
+            }, function(reason) {
+                console.error('Error fetching repositories: ' + reason);
+            });
+        }
+
+        function loadTasks() {
+            deploymentsService.getTasks().then(function (data) {
+                vm.tasks = data;
+            }, function(reason) {
+                console.error('Error fetching tasks: ' + reason);
+            });
+        }
+
+        /**
+         * Requests selected deployment (in edit mode) from backend.
+         */
+        function loadDeployment() {
+            var deploymentId = ($routeParams.deploymentId) ? parseInt($routeParams.deploymentId) : 0;
+            deploymentsService.getDeploymentData(deploymentId).then(function (data) {
+                vm.deployment = data;
+                vm.refreshBranches();
+            }, function (reason) {
+                $location.path('/deployments');
             });
         }
     }
