@@ -73,4 +73,8 @@ return [
             'gitea',
         ],
     ],
+
+    'deployment_tasks' => [
+        '\ShinyDeploy\DeploymentTasks\SshCommand\SshCommand',
+    ],
 ];
