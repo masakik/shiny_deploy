@@ -7,14 +7,25 @@ use Noodlehaus\Config;
 
 abstract class Worker extends ShinyGearsWorker
 {
-    /** @var Config Project config. */
+    /**
+     * @var Config Project config.
+     */
     protected $config;
 
-    /** @var  Logger $logger */
+    /**
+     * @var Logger $logger
+     */
     protected $logger;
 
-    /** @var  \ZMQContext $zmqContext */
+    /**
+     * @var \ZMQContext $zmqContext
+     */
     protected $zmqContext;
+
+    /**
+     * @var EventManager $eventManager
+     */
+    protected $eventManager;
 
     public function __construct(array $config, string $poolName, string $workerName)
     {
@@ -29,6 +40,10 @@ abstract class Worker extends ShinyGearsWorker
 
         $this->zmqContext = new \ZMQContext;
         $this->logger->info('Starting worker. (Name: ' . $workerName . ')');
+
+        // init event manager:
+        $eventManagerFactory = new EventManagerFactory;
+        $this->eventManager = $eventManagerFactory->make();
 
         parent::__construct($config, $poolName, $workerName);
     }

@@ -6,15 +6,25 @@ use Noodlehaus\Config;
 
 class Action
 {
-    /** @var Config $config */
+    /**
+     * @var Config $config
+     */
     protected $config;
 
-    /** @var Logger $logger */
+    /**
+     * @var Logger $logger
+     */
     protected $logger;
 
-    public function __construct(Config $config, Logger $logger)
+    /**
+     * @var EventManager $eventManager
+     */
+    protected $eventManager;
+
+    public function __construct(Config $config, Logger $logger, EventManager $eventManager)
     {
         $this->config = $config;
         $this->logger = $logger;
+        $this->eventManager = $eventManager;
     }
 }

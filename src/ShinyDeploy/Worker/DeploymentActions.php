@@ -47,7 +47,7 @@ class DeploymentActions extends Worker
             if (empty($params['deploymentId'])) {
                 throw new MissingDataException('DeploymentId can not be empty.');
             }
-            $action = new Deploy($this->config, $this->logger);
+            $action = new Deploy($this->config, $this->logger, $this->eventManager);
             $action->setClientId($params['clientId']);
             $action->setToken($params['token']);
             $action->__invoke($params['deploymentId'], $tasksToRun);
@@ -80,7 +80,7 @@ class DeploymentActions extends Worker
             if (!empty($params['requestParameters'])) {
                 $requestParameters = $params['requestParameters'];
             }
-            $action = new ApiDeploy($this->config, $this->logger);
+            $action = new ApiDeploy($this->config, $this->logger, $this->eventManager);
             $action->setApiKey($params['apiKey']);
             $action->setApiPassword($params['apiPassword']);
             $action->__invoke($requestParameters);
@@ -112,7 +112,7 @@ class DeploymentActions extends Worker
             if (empty($params['deploymentId'])) {
                 throw new MissingDataException('DeploymentId can not be empty.');
             }
-            $action = new GetChangedFiles($this->config, $this->logger);
+            $action = new GetChangedFiles($this->config, $this->logger, $this->eventManager);
             $action->setClientId($params['clientId']);
             $action->setToken($params['token']);
             $action->__invoke($params['deploymentId']);
@@ -141,7 +141,7 @@ class DeploymentActions extends Worker
             if (empty($params['token'])) {
                 throw new MissingDataException('Token can not be empty.');
             }
-            $action = new GetFileDiff($this->config, $this->logger);
+            $action = new GetFileDiff($this->config, $this->logger, $this->eventManager);
             $action->setClientId($params['clientId']);
             $action->setToken($params['token']);
             $action->__invoke($params);
@@ -170,7 +170,7 @@ class DeploymentActions extends Worker
             if (empty($params['token'])) {
                 throw new MissingDataException('Token can not be empty.');
             }
-            $action = new SetLocalRevision($this->config, $this->logger);
+            $action = new SetLocalRevision($this->config, $this->logger, $this->eventManager);
             $action->setClientId($params['clientId']);
             $action->setToken($params['token']);
             $action->__invoke($params);
@@ -199,7 +199,7 @@ class DeploymentActions extends Worker
             if (empty($params['token'])) {
                 throw new MissingDataException('Token can not be empty.');
             }
-            $action = new SetRemoteRevision($this->config, $this->logger);
+            $action = new SetRemoteRevision($this->config, $this->logger, $this->eventManager);
             $action->setClientId($params['clientId']);
             $action->setToken($params['token']);
             $action->__invoke($params);

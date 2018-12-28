@@ -13,19 +13,31 @@ use ShinyDeploy\Responder\WsDataResponder;
 
 class WsGateway implements WampServerInterface
 {
-    /** @var Config $config */
+    /**
+     * @var Config $config
+     */
     protected $config;
 
-    /** @var  Logger $logger */
+    /**
+     * @var  Logger $logger
+     */
     protected $logger;
 
-    /** @var array $subscriptions */
+    /**
+     * @var array $subscriptions
+     */
     protected $subscriptions = [];
 
-    public function __construct(Config $config, Logger $logger)
+    /**
+     * @var EventManager $eventManager
+     */
+    protected $eventManager;
+
+    public function __construct(Config $config, Logger $logger, EventManager $eventManager)
     {
         $this->config = $config;
         $this->logger = $logger;
+        $this->eventManager = $eventManager;
     }
 
     /**
@@ -132,7 +144,7 @@ class WsGateway implements WampServerInterface
         }
         $responder = new WsDataResponder($this->config, $this->logger);
         /** @var \ShinyDeploy\Action\WsDataAction\WsDataAction $action */
-        $action = new $actionClassName($this->config, $this->logger);
+        $action = new $actionClassName($this->config, $this->logger, $this->eventManager);
         $action->setResponder($responder);
         $action->setClientId($clientId);
         $action->setToken($token);

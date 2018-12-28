@@ -36,7 +36,7 @@ class RepositoryActions extends Worker
             if (empty($params['repositoryId'])) {
                 throw new MissingDataException('RepositoryId can not be empty.');
             }
-            $cloneRepositoryAction = new CloneRepository($this->config, $this->logger);
+            $cloneRepositoryAction = new CloneRepository($this->config, $this->logger, $this->eventManager);
             $cloneRepositoryAction->setClientId($params['clientId']);
             $cloneRepositoryAction->setToken($params['token']);
             $cloneRepositoryAction->__invoke($params['repositoryId']);
@@ -68,7 +68,7 @@ class RepositoryActions extends Worker
             if (empty($params['repoPath'])) {
                 throw new MissingDataException('RepoPath can not be empty.');
             }
-            $deleteRepositoryAction = new DeleteRepositoryFiles($this->config, $this->logger);
+            $deleteRepositoryAction = new DeleteRepositoryFiles($this->config, $this->logger, $this->eventManager);
             $deleteRepositoryAction->setClientId($params['clientId']);
             $deleteRepositoryAction->setToken($params['token']);
             $deleteRepositoryAction->__invoke($params['repoPath']);

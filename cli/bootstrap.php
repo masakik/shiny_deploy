@@ -10,3 +10,7 @@ $logger = new \Apix\Log\Logger;
 $fileLogger = new \Apix\Log\Logger\File($config->get('logging.file'));
 $fileLogger->setMinLevel($config->get('logging.level'));
 $logger->add($fileLogger);
+
+// init event manager:
+$eventManagerFactory = new \ShinyDeploy\Core\EventManagerFactory;
+$eventManager = $eventManagerFactory->make();
