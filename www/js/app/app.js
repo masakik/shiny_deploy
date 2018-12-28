@@ -53,14 +53,20 @@ app.config(['$routeProvider', '$locationProvider', 'wsProvider', 'shinyDeployCon
                 templateUrl: '/js/app/deployments/deployments.html'
             })
             .when('/deployments/add', {
-                controller: 'DeploymentsAddController',
+                controller: 'DeploymentsEditController',
                 controllerAs: 'vm',
-                templateUrl: '/js/app/deployments/deployments_form.html'
+                templateUrl: '/js/app/deployments/deployments_form.html',
+                resolve: {
+                    mode: function() { return 'add'; }
+                }
             })
             .when('/deployments/edit/:deploymentId', {
                 controller: 'DeploymentsEditController',
                 controllerAs: 'vm',
-                templateUrl: '/js/app/deployments/deployments_form.html'
+                templateUrl: '/js/app/deployments/deployments_form.html',
+                resolve: {
+                    mode: function() { return 'edit'; }
+                }
             })
             .when('/deployments/run/:deploymentId', {
                 controller: 'DeploymentsRunController',

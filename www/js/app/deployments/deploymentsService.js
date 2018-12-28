@@ -28,6 +28,15 @@ app.service('deploymentsService', ['ws', '$q', function (ws, $q) {
     };
 
     /**
+     * Fetches list of tasks.
+     *
+     * @returns {promise}
+     */
+    this.getTasks = function() {
+        return ws.sendDataRequest('getDeploymentTasks');
+    };
+
+    /**
      * Fetches list of repository branches.
      *
      * @param {Number} repositoryId
