@@ -19,6 +19,6 @@ class SshCommand extends Task
      */
     public function provideName(): void
     {
-        $this->name = 'Executes a command on the target server.';
+        $this->name = 'SSH Command';
     }
 }

@@ -55,6 +55,18 @@
                                 </select>
                             </div>
                         </div>
+                        <div class="col-xs-12">
+                            <div class="form-group">
+                                <label for="deployment-task_arguments">Arguments</label>
+                                <textarea name="task_arguments"
+                                          id="deployment-task_arguments"
+                                          rows="5"
+                                          class="form-control"
+                                          data-ng-model="vm.task.arguments">
+                                </textarea>
+                                <p class="help-block">This input will be passed to the deployment task and may contain task specific configuration data.</p>
+                            </div>
+                        </div>
                     </div>
                 </form>
             </div>
