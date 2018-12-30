@@ -75,6 +75,10 @@ return [
     ],
 
     'deployment_tasks' => [
-        '\ShinyDeploy\DeploymentTasks\SshCommand\SshCommand',
+        [
+            'type' => 'ssh_command',
+            'name' => 'SSH Command',
+            'class' => '\ShinyDeploy\DeploymentTasks\SshCommand\SshCommand',
+        ],
     ],
 ];

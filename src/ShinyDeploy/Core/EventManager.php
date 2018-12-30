@@ -25,7 +25,14 @@ class EventManager
         if (!isset($this->listeners[$eventName])) {
             $this->listeners[$eventName] = [];
         }
-        array_push($this->listeners[$eventName], $listener);
+
+        // Get callable name so we do not add the same listener twice:
+        is_callable($listener, true, $listenerName);
+        if (isset($this->listeners[$eventName][$listenerName])) {
+            return;
+        }
+
+        $this->listeners[$eventName][$listenerName] = $listener;
     }
 
     /**
@@ -43,11 +50,8 @@ class EventManager
         if (!isset($this->listeners[$eventName])) {
             return;
         }
-        $index = array_search($listener, $this->listeners[$eventName], true);
-        if ($index === false) {
-            return;
-        }
-        unset($this->listeners[$eventName][$index]);
+        is_callable($listener, true, $listenerName);
+        unset($this->listeners[$eventName][$listenerName]);
     }
 
     /**

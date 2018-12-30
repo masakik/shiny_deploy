@@ -3,6 +3,7 @@
 namespace ShinyDeploy\DeploymentTasks\SshCommand;
 
 use ShinyDeploy\Core\DeploymentTasks\Task;
+use ShinyDeploy\Domain\Deployment;
 
 class SshCommand extends Task
 {
@@ -27,8 +28,8 @@ class SshCommand extends Task
      */
     public function subscribeToEvents(): void
     {
-        $this->eventManager->on('deploymentStarted', function ($deployment) {
-            // @todo Register actual stuff...
+        $this->eventManager->on('deploymentStarted', function (Deployment $deployment) {
+            // ...
         });
     }
 }

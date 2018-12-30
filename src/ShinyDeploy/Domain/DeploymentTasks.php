@@ -24,25 +24,44 @@ class DeploymentTasks extends Domain
      * Provides a list of currently registered tasks.
      *
      * @return array List of task identifiers and names.
-     * @throws \ShinyDeploy\Exceptions\ShinyDeployException
      */
     public function listAvailableTasks(): array
     {
-        $taskConfig = $this->config['deployment_tasks'] ?? [];
-        if (empty($taskConfig)) {
+        if (empty($this->config['deployment_tasks'])) {
             return  [];
         }
 
         $taskList = [];
-        foreach ($taskConfig as $type => $taskClassName) {
-            $task = $this->taskFactory->make($type);
+        foreach ($this->config['deployment_tasks'] as $taskConfig) {
             array_push($taskList, [
-                'type' => $task->getType(),
-                'name' => $task->getName(),
+                'type' => $taskConfig['type'],
+                'name' => $taskConfig['name'],
             ]);
-            unset($task);
         }
 
         return $taskList;
+    }
+
+    /**
+     * Initializes and returns all available tasks.
+     *
+     * @return array
+     * @throws \ShinyDeploy\Exceptions\ShinyDeployException
+     */
+    public function getTasks(): array
+    {
+        $taskList = $this->listAvailableTasks();
+        if (empty($taskList)) {
+            return [];
+        }
+
+        $tasks = [];
+        foreach ($taskList as $taskData) {
+            $task = $this->taskFactory->make($taskData['type']);
+            $task->subscribeToEvents();
+            array_push($tasks, $task);
+        }
+
+        return $tasks;
     }
 }

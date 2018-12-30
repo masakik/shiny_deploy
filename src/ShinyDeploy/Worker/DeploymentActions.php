@@ -6,15 +6,23 @@ use ShinyDeploy\Action\WsWorkerAction\GetFileDiff;
 use ShinyDeploy\Action\WsWorkerAction\SetLocalRevision;
 use ShinyDeploy\Action\WsWorkerAction\SetRemoteRevision;
 use ShinyDeploy\Action\ApiAction\Deploy as ApiDeploy;
+use ShinyDeploy\Core\DeploymentTasks\TaskFactory;
 use ShinyDeploy\Core\Worker;
+use ShinyDeploy\Domain\DeploymentTasks;
 use ShinyDeploy\Exceptions\MissingDataException;
 
 class DeploymentActions extends Worker
 {
     /**
+     * @var array $tasks
+     */
+    protected $tasks = [];
+
+    /**
      * Calls all "init methods" and waits for jobs from gearman server.
      *
      * @return void
+     * @throws \ShinyDeploy\Exceptions\ShinyDeployException
      */
     protected function registerCallbacks()
     {
@@ -24,6 +32,8 @@ class DeploymentActions extends Worker
         $this->GearmanWorker->addFunction('getFileDiff', [$this, 'getFileDiff']);
         $this->GearmanWorker->addFunction('setLocalRevision', [$this, 'setLocalRevision']);
         $this->GearmanWorker->addFunction('setRemoteRevision', [$this, 'setRemoteRevision']);
+
+        $this->loadDeploymentTasks();
     }
 
     /**
@@ -209,5 +219,17 @@ class DeploymentActions extends Worker
             );
         }
         return true;
+    }
+
+    /**
+     * Initializes the deployment tasks.
+     *
+     * @throws \ShinyDeploy\Exceptions\ShinyDeployException
+     */
+    protected function loadDeploymentTasks(): void
+    {
+        $taskFactory = new TaskFactory($this->config, $this->logger, $this->eventManager);
+        $tasksDomain = new DeploymentTasks($this->config, $this->logger, $taskFactory);
+        $this->tasks = $tasksDomain->getTasks();
     }
 }

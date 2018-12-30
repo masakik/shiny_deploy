@@ -4,7 +4,6 @@ namespace ShinyDeploy\Domain;
 use Apix\Log\Logger;
 use Noodlehaus\Config;
 use RuntimeException;
-use ShinyDeploy\Core\DeploymentTasks\TaskFactory;
 use ShinyDeploy\Core\Domain;
 use ShinyDeploy\Core\EventManager;
 use ShinyDeploy\Core\Responder;
@@ -88,15 +87,20 @@ class Deployment extends Domain
      * @param array $data
      * @throws \ShinyDeploy\Exceptions\CryptographyException
      * @throws \ShinyDeploy\Exceptions\DatabaseException
+     * @throws \ShinyDeploy\Exceptions\ShinyDeployException
      */
     public function init(array $data) : void
     {
         $this->data = $data;
+
+        // load server:
         $servers = new Servers($this->config, $this->logger);
         $servers->setEnryptionKey($this->encryptionKey);
+        $this->server = $servers->getServer($data['server_id']);
+
+        // load repository:
         $repositories = new Repositories($this->config, $this->logger);
         $repositories->setEnryptionKey($this->encryptionKey);
-        $this->server = $servers->getServer($data['server_id']);
         $this->repository = $repositories->getRepository($data['repository_id']);
     }
 
@@ -169,8 +173,6 @@ class Deployment extends Domain
 
         $this->listMode = $listMode;
         $this->initiator = $initiator;
-
-        $this->loadTasks();
 
         $this->eventManager->emit('deploymentStarted', ['deployment' => $this]);
 
@@ -526,75 +528,5 @@ class Deployment extends Domain
         $brachParts = explode('/', $this->data['branch']);
         $branch = array_pop($brachParts);
         return ($branch === $checkBranch);
-    }
-
-    /**
-     * Initializes deployment tasks.
-     *
-     * @return void
-     * @throws \ShinyDeploy\Exceptions\ShinyDeployException
-     */
-    protected function loadTasks(): void
-    {
-        if (empty($this->data['tasks'])) {
-            return;
-        }
-        if ($this->initiator === 'gui') {
-            $this->loadSelectedTasks();
-        } else {
-            $this->loadDefaultTasks();
-        }
-    }
-
-    /**
-     * Initializes deployment tasks selected by user via GUI.
-     *
-     * @throws \ShinyDeploy\Exceptions\ShinyDeployException
-     * @return void
-     */
-    protected function loadSelectedTasks(): void
-    {
-        if (empty($this->selectedTasks)) {
-            return;
-        }
-
-        // build task index-id map:
-        $taskMap = [];
-        foreach ($this->data['tasks'] as $i => $taskData) {
-            $taskMap[$taskData['id']] = $i;
-        }
-
-        // create selected tasks:
-        $taskFactory = new TaskFactory($this->config, $this->logger, $this->eventManager);
-        foreach ($this->selectedTasks as $taskId => $taskEnabled) {
-            if (empty($taskEnabled)) {
-                continue;
-            }
-            $taskIndex = $taskMap[$taskId];
-            $taskType = $this->data['tasks'][$taskIndex]['type'];
-            $task = $taskFactory->make($taskType);
-            $task->subscribeToEvents();
-            array_push($this->tasks, $task);
-        }
-    }
-
-    /**
-     * Initializes deployment tasks enabled by default when deployment is triggered via API.
-     *
-     * @throws \ShinyDeploy\Exceptions\ShinyDeployException
-     * @return void
-     */
-    protected function loadDefaultTasks(): void
-    {
-        $taskFactory = new TaskFactory($this->config, $this->logger, $this->eventManager);
-        foreach ($this->data['tasks'] as $i => $taskData) {
-            if ((int) $taskData['run_by_default'] !== 1) {
-                continue;
-            }
-
-            $task = $taskFactory->make($taskData['type']);
-            $task->subscribeToEvents();
-            array_push($this->tasks, $task);
-        }
     }
 }

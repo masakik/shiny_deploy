@@ -28,19 +28,12 @@ abstract class Task implements TaskInterface
      */
     protected $type = '';
 
-    /**
-     * @var string $name Descriptive name of the task.
-     */
-    protected $name = '';
-
-    public function __construct(string $type, Config $config, Logger $logger, EventManager $eventManager)
+    public function __construct(Config $config, Logger $logger, EventManager $eventManager, string $type)
     {
-        $this->type = $type;
         $this->config = $config;
         $this->logger = $logger;
         $this->eventManager = $eventManager;
-
-        $this->provideName();
+        $this->type = $type;
     }
 
     /**
@@ -51,15 +44,5 @@ abstract class Task implements TaskInterface
     public function getType(): string
     {
         return $this->type;
-    }
-
-    /**
-     * Retrieves name.
-     *
-     * @return string
-     */
-    public function getName(): string
-    {
-        return $this->name;
     }
 }
