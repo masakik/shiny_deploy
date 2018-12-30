@@ -28,8 +28,23 @@ class SshCommand extends Task
      */
     public function subscribeToEvents(): void
     {
-        $this->eventManager->on('deploymentStarted', function (Deployment $deployment) {
-            // ...
-        });
+        $this->eventManager->on('deploymentCompleted', [$this, 'runRemoteAfterDeployCommands']);
+    }
+
+    /**
+     * Executes SSH commands on remote server as configured in deployment.
+     *
+     * @param Deployment $deployment
+     */
+    public function runRemoteAfterDeployCommands(Deployment $deployment): void
+    {
+        // @todo Skip execution if deployment is in list mode.
+
+        $tasksConfigs = $this->getTaskConfigs($deployment);
+        if (empty($tasksConfigs)) {
+            return;
+        }
+
+        // @todo Run through task configurations and execute commands
     }
 }

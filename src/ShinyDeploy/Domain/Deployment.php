@@ -55,11 +55,6 @@ class Deployment extends Domain
     protected $encryptionKey;
 
     /**
-     * @var array $tasks
-     */
-    protected $tasks = [];
-
-    /**
      * @var array $selectedTasks
      */
     protected $selectedTasks = [];
@@ -81,27 +76,6 @@ class Deployment extends Domain
             throw new \InvalidArgumentException('Encryption key can not be empty.');
         }
         $this->encryptionKey = $encryptionKey;
-    }
-
-    /**
-     * @param array $data
-     * @throws \ShinyDeploy\Exceptions\CryptographyException
-     * @throws \ShinyDeploy\Exceptions\DatabaseException
-     * @throws \ShinyDeploy\Exceptions\ShinyDeployException
-     */
-    public function init(array $data) : void
-    {
-        $this->data = $data;
-
-        // load server:
-        $servers = new Servers($this->config, $this->logger);
-        $servers->setEnryptionKey($this->encryptionKey);
-        $this->server = $servers->getServer($data['server_id']);
-
-        // load repository:
-        $repositories = new Repositories($this->config, $this->logger);
-        $repositories->setEnryptionKey($this->encryptionKey);
-        $this->repository = $repositories->getRepository($data['repository_id']);
     }
 
     /**
@@ -127,6 +101,26 @@ class Deployment extends Domain
     }
 
     /**
+     * Returns tasks selected by user via GUI.
+     *
+     * @return array
+     */
+    public function getSelectedTasks(): array
+    {
+        return $this->selectedTasks;
+    }
+
+    /**
+     * Fetches deployments task configuration.
+     *
+     * @return array
+     */
+    public function getTaskData(): array
+    {
+        return $this->data['tasks'] ?? [];
+    }
+
+    /**
      * Returns list of changed files.
      *
      * @return array
@@ -144,6 +138,37 @@ class Deployment extends Domain
     public function inListMode(): bool
     {
         return $this->listMode;
+    }
+
+    /**
+     * Returns initiator of deployment (api or gui)
+     *
+     * @return string
+     */
+    public function getInitiator(): string
+    {
+        return $this->initiator;
+    }
+
+    /**
+     * @param array $data
+     * @throws \ShinyDeploy\Exceptions\CryptographyException
+     * @throws \ShinyDeploy\Exceptions\DatabaseException
+     * @throws \ShinyDeploy\Exceptions\ShinyDeployException
+     */
+    public function init(array $data) : void
+    {
+        $this->data = $data;
+
+        // load server:
+        $servers = new Servers($this->config, $this->logger);
+        $servers->setEnryptionKey($this->encryptionKey);
+        $this->server = $servers->getServer($data['server_id']);
+
+        // load repository:
+        $repositories = new Repositories($this->config, $this->logger);
+        $repositories->setEnryptionKey($this->encryptionKey);
+        $this->repository = $repositories->getRepository($data['repository_id']);
     }
 
     /**
@@ -239,6 +264,8 @@ class Deployment extends Domain
             $this->logResponder->error('Could not update remove revision file. Aborting job.');
             return false;
         }
+
+        $this->eventManager->emit('deploymentCompleted', ['deployment' => $this]);
 
         return true;
     }
