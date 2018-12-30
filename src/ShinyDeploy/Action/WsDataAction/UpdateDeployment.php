@@ -29,7 +29,7 @@ class UpdateDeployment extends WsDataAction
             throw new InvalidPayloadException('Invalid updateDeployment request received.');
         }
         $deploymentData = $actionPayload['deploymentData'];
-        $deployments = new Deployments($this->config, $this->logger);
+        $deployments = new Deployments($this->config, $this->logger, $this->eventManager);
         if (isset($deploymentData['tasks'])) {
             $deploymentData['tasks'] = $deployments->encodeDeploymentTasks($deploymentData['tasks']);
         }

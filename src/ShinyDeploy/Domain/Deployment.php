@@ -1,8 +1,12 @@
 <?php
 namespace ShinyDeploy\Domain;
 
+use Apix\Log\Logger;
+use Noodlehaus\Config;
 use RuntimeException;
+use ShinyDeploy\Core\DeploymentTasks\TaskFactory;
 use ShinyDeploy\Core\Domain;
+use ShinyDeploy\Core\EventManager;
 use ShinyDeploy\Core\Responder;
 use ShinyDeploy\Domain\Database\Repositories;
 use ShinyDeploy\Domain\Database\Servers;
@@ -11,24 +15,61 @@ use ShinyDeploy\Exceptions\GitException;
 
 class Deployment extends Domain
 {
-    /** @var \ShinyDeploy\Domain\Server\SftpServer|\ShinyDeploy\Domain\Server\SshServer $server */
+    /**
+     * @var EventManager $eventManager
+     */
+    protected $eventManager;
+
+    /**
+     * @var \ShinyDeploy\Domain\Server\SftpServer|\ShinyDeploy\Domain\Server\SshServer $server
+     */
     protected $server;
 
-    /** @var Repository $repository */
+    /**
+     * @var Repository $repository
+     */
     protected $repository;
 
-    /** @var \ShinyDeploy\Responder\WsLogResponder $logResponder */
+    /**
+     * @var \ShinyDeploy\Responder\WsLogResponder $logResponder
+     */
     protected $logResponder;
 
-    /** @var array $changedFiles */
+    /**
+     * @var bool $listMode Defines if deployment only lists changed files (and skips actual deployment)
+     */
+    protected $listMode = false;
+
+    /**
+     * @var string $initiator Can be "api" or "gui".
+     */
+    protected $initiator = '';
+
+    /**
+     * @var array $changedFiles
+     */
     protected $changedFiles = [];
 
-    /** @var string $encryptionKey */
+    /**
+     * @var string $encryptionKey
+     */
     protected $encryptionKey;
 
-    /** @var array $tasksToRun */
-    protected $tasksToRun = [];
+    /**
+     * @var array $tasks
+     */
+    protected $tasks = [];
 
+    /**
+     * @var array $selectedTasks
+     */
+    protected $selectedTasks = [];
+
+    public function __construct(Config $config, Logger $logger, EventManager $eventManager)
+    {
+        parent::__construct($config, $logger);
+        $this->eventManager = $eventManager;
+    }
 
     /**
      * Sets the encryption key.
@@ -71,14 +112,14 @@ class Deployment extends Domain
     }
 
     /**
-     * Setter for tasksToRun filter.
+     * Sets tasks selected by user via GUI.
      *
-     * @param array $tasksToRun
+     * @param array $selectedTasks
      * @return void
      */
-    public function setTasksToRun(array $tasksToRun) : void
+    public function setSelectedTasks(array $selectedTasks) : void
     {
-        $this->tasksToRun = $tasksToRun;
+        $this->selectedTasks = $selectedTasks;
     }
 
     /**
@@ -92,14 +133,26 @@ class Deployment extends Domain
     }
 
     /**
+     * Checks if deployment is in list mode.
+     *
+     * @return bool
+     */
+    public function inListMode(): bool
+    {
+        return $this->listMode;
+    }
+
+    /**
      * Executes an actual deployment.
      *
      * @param bool $listMode
+     * @param string $initiator
      * @return bool
      * @throws \ZMQException
      * @throws \ShinyDeploy\Exceptions\MissingDataException
+     * @throws \ShinyDeploy\Exceptions\ShinyDeployException
      */
-    public function deploy(bool $listMode = false) : bool
+    public function deploy(bool $listMode, string $initiator) : bool
     {
         if (empty($this->data)) {
             throw new RuntimeException('Deployment data not found. Initialization missing?');
@@ -110,8 +163,16 @@ class Deployment extends Domain
         if (empty($this->repository)) {
             throw new RuntimeException('Repository object not found');
         }
+        if ($initiator !== 'api' && $initiator !== 'gui') {
+            throw new \InvalidArgumentException('Invalid initiator');
+        }
 
-        $this->filterTasks();
+        $this->listMode = $listMode;
+        $this->initiator = $initiator;
+
+        $this->loadTasks();
+
+        $this->eventManager->emit('deploymentStarted', ['deployment' => $this]);
 
         $this->logResponder->log('Checking prerequisites...');
         if ($this->checkPrerequisites() === false) {
@@ -121,7 +182,7 @@ class Deployment extends Domain
 
         $this->logResponder->log('Switching branch...');
         if ($this->switchBranch() === false) {
-            $this->logResponder->error('Could not swtich to selected branch. Aborting job.');
+            $this->logResponder->error('Could not switch to selected branch. Aborting job.');
             return false;
         }
 
@@ -129,14 +190,6 @@ class Deployment extends Domain
         if ($this->prepareRepository() === false) {
             $this->logResponder->error('Preparation of local repository failed. Aborting job.');
             return false;
-        }
-
-        if ($listMode === false) {
-            $this->logResponder->log('Running tasks...');
-            if ($this->runTasks('before') === false) {
-                $this->logResponder->error('Running tasks failed. Aborting job.');
-                return false;
-            }
         }
 
         $this->logResponder->log('Estimating remote revision...');
@@ -182,12 +235,6 @@ class Deployment extends Domain
         $this->logResponder->log('Updating revision file...');
         if ($this->updateRemoteRevisionFile($localRevision) === false) {
             $this->logResponder->error('Could not update remove revision file. Aborting job.');
-            return false;
-        }
-
-        $this->logResponder->log('Running tasks...');
-        if ($listMode === false && $this->runTasks('after') === false) {
-            $this->logResponder->error('Running tasks failed. Aborting job.');
             return false;
         }
 
@@ -247,116 +294,6 @@ class Deployment extends Domain
             }
         }
         return $result;
-    }
-
-    /**
-     * Removes tasks disabled via GUI or which are not enabled by default.
-     *
-     * @return bool
-     */
-    protected function filterTasks() : bool
-    {
-        if (empty($this->data['tasks'])) {
-            return true;
-        }
-        if (empty($this->tasksToRun)) {
-            return $this->filterNonDefaultTasks();
-        } else {
-            return $this->filterNonSelectedTasks();
-        }
-    }
-
-    /**
-     * Removes tasks from task-list not enabled by default.
-     *
-     * @return bool
-     */
-    private function filterNonDefaultTasks() : bool
-    {
-        foreach ($this->data['tasks'] as $i => $task) {
-            if ((int)$task['run_by_default'] !== 1) {
-                unset($this->data['tasks'][$i]);
-            }
-        }
-        array_merge($this->data['tasks'], []);
-        return true;
-    }
-
-    /**
-     * Removes tasks from task-list not enabled/selected in GUI.
-     *
-     * @return bool
-     */
-    private function filterNonSelectedTasks() : bool
-    {
-        // noting to do if task-filter is empty
-        if (empty($this->tasksToRun)) {
-            return true;
-        }
-
-        // collect task-ids to remove
-        $tasksToRemove = [];
-        foreach ($this->tasksToRun as $taskId => $taskEnabled) {
-            if ((int)$taskEnabled === 1) {
-                continue;
-            }
-            array_push($tasksToRemove, $taskId);
-        }
-
-        // remove tasks
-        foreach ($this->data['tasks'] as $i => $task) {
-            if (in_array($task['id'], $tasksToRemove)) {
-                unset($this->data['tasks'][$i]);
-            }
-        }
-        array_merge($this->data['tasks'], []);
-        return true;
-    }
-
-    /**
-     * Runs user defined tasks on target server.
-     *
-     * @param string $type
-     * @return boolean
-     * @throws \ZMQException
-     */
-    protected function runTasks(string $type) : bool
-    {
-        // Skip if no tasks defined
-        if (empty($this->data['tasks'])) {
-            return true;
-        }
-
-        // Skip if no tasks of given type defined:
-        $typeTasks = [];
-        foreach ($this->data['tasks'] as $task) {
-            if ($task['type'] === $type) {
-                array_push($typeTasks, $task);
-            }
-        }
-        if (empty($typeTasks)) {
-            return true;
-        }
-
-        // Skip if server is not ssh capable:
-        if ($this->server->getType() !== 'ssh') {
-            $this->logResponder->danger('Server not of type SSH. Skipping tasks.');
-            return false;
-        }
-
-        // Execute tasks on server:
-        $remotePath = $this->getRemotePath();
-        foreach ($typeTasks as $task) {
-            $command = 'cd ' . $remotePath . ' && ' . $task['command'];
-            $this->logResponder->info('Executing task: ' . $task['name']);
-            $response = $this->server->executeCommand($command);
-            if ($response === false) {
-                $this->logResponder->danger('Task failed.');
-            } else {
-                $this->logResponder->log($response);
-            }
-        }
-        return true;
     }
 
     /**
@@ -589,5 +526,75 @@ class Deployment extends Domain
         $brachParts = explode('/', $this->data['branch']);
         $branch = array_pop($brachParts);
         return ($branch === $checkBranch);
+    }
+
+    /**
+     * Initializes deployment tasks.
+     *
+     * @return void
+     * @throws \ShinyDeploy\Exceptions\ShinyDeployException
+     */
+    protected function loadTasks(): void
+    {
+        if (empty($this->data['tasks'])) {
+            return;
+        }
+        if ($this->initiator === 'gui') {
+            $this->loadSelectedTasks();
+        } else {
+            $this->loadDefaultTasks();
+        }
+    }
+
+    /**
+     * Initializes deployment tasks selected by user via GUI.
+     *
+     * @throws \ShinyDeploy\Exceptions\ShinyDeployException
+     * @return void
+     */
+    protected function loadSelectedTasks(): void
+    {
+        if (empty($this->selectedTasks)) {
+            return;
+        }
+
+        // build task index-id map:
+        $taskMap = [];
+        foreach ($this->data['tasks'] as $i => $taskData) {
+            $taskMap[$taskData['id']] = $i;
+        }
+
+        // create selected tasks:
+        $taskFactory = new TaskFactory($this->config, $this->logger, $this->eventManager);
+        foreach ($this->selectedTasks as $taskId => $taskEnabled) {
+            if (empty($taskEnabled)) {
+                continue;
+            }
+            $taskIndex = $taskMap[$taskId];
+            $taskType = $this->data['tasks'][$taskIndex]['type'];
+            $task = $taskFactory->make($taskType);
+            $task->subscribeToEvents();
+            array_push($this->tasks, $task);
+        }
+    }
+
+    /**
+     * Initializes deployment tasks enabled by default when deployment is triggered via API.
+     *
+     * @throws \ShinyDeploy\Exceptions\ShinyDeployException
+     * @return void
+     */
+    protected function loadDefaultTasks(): void
+    {
+        $taskFactory = new TaskFactory($this->config, $this->logger, $this->eventManager);
+        foreach ($this->data['tasks'] as $i => $taskData) {
+            if ((int) $taskData['run_by_default'] !== 1) {
+                continue;
+            }
+
+            $task = $taskFactory->make($taskData['type']);
+            $task->subscribeToEvents();
+            array_push($this->tasks, $task);
+        }
     }
 }

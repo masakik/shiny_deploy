@@ -38,14 +38,14 @@ class GetChangedFiles extends WsWorkerAction
         // init stuff:
         $logResponder = new WsLogResponder($this->config, $this->logger);
         $logResponder->setClientId($this->clientId);
-        $deployments = new Deployments($this->config, $this->logger);
+        $deployments = new Deployments($this->config, $this->logger, $this->eventManager);
         $deployments->setEnryptionKey($encryptionKey);
         $deployment = $deployments->getDeployment($deploymentId);
         $deployment->setLogResponder($logResponder);
 
         // get changed files and respond:
         $logResponder->log('Collecting changed files...');
-        $result = $deployment->deploy(true);
+        $result = $deployment->deploy(true, 'gui');
         if ($result === false) {
             $notificationResponder = new WsNotificationResponder($this->config, $this->logger);
             $notificationResponder->setClientId($this->clientId);

@@ -37,7 +37,7 @@ class GetDeploymentData extends WsDataAction
         }
 
         $deploymentId = (int)$actionPayload['deploymentId'];
-        $deployments = new Deployments($this->config, $this->logger);
+        $deployments = new Deployments($this->config, $this->logger, $this->eventManager);
         $deployments->setEnryptionKey($encryptionKey);
         $deploymentData = $deployments->getDeploymentData($deploymentId);
         if (empty($deploymentData)) {

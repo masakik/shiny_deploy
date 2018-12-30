@@ -34,7 +34,7 @@ class SetLocalRevision extends WsWorkerAction
         }
 
         $deploymentId = (int)$params['deploymentId'];
-        $deployments = new Deployments($this->config, $this->logger);
+        $deployments = new Deployments($this->config, $this->logger, $this->eventManager);
         $deployments->setEnryptionKey($encryptionKey);
         $deployment = $deployments->getDeployment($deploymentId);
         $logResponder = new NullResponder($this->config, $this->logger);

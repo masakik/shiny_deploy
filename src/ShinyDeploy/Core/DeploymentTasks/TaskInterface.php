@@ -5,18 +5,11 @@ namespace ShinyDeploy\Core\DeploymentTasks;
 interface TaskInterface
 {
     /**
-     * Sets a unique identifier for the task.
-     *
-     * @return void
-     */
-    public function provideIdentifier(): void;
-
-    /**
      * Retrieves identifier.
      *
      * @return string
      */
-    public function getIdentifier(): string;
+    public function getType(): string;
 
     /**
      * Sets a descriptive name for the task.
@@ -31,4 +24,9 @@ interface TaskInterface
      * @return string
      */
     public function getName(): string;
+
+    /**
+     * Subscribes the task to all events it needs to know about.
+     */
+    public function subscribeToEvents(): void;
 }

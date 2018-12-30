@@ -25,7 +25,7 @@ class DeleteDeployment extends WsDataAction
             throw new InvalidPayloadException('Invalid deleteDeployment request received.');
         }
         $deploymentId = (int)$actionPayload['deploymentId'];
-        $deployments = new Deployments($this->config, $this->logger);
+        $deployments = new Deployments($this->config, $this->logger, $this->eventManager);
 
         // remove server:
         $addResult = $deployments->deleteDeployment($deploymentId);

@@ -1,7 +1,10 @@
 <?php
 namespace ShinyDeploy\Domain\Database;
 
+use Apix\Log\Logger;
+use Noodlehaus\Config;
 use RuntimeException;
+use ShinyDeploy\Core\EventManager;
 use ShinyDeploy\Domain\Deployment;
 use ShinyDeploy\Exceptions\DatabaseException;
 use ShinyDeploy\Traits\CryptableDomain;
@@ -34,6 +37,17 @@ class Deployments extends DatabaseDomain
     protected $encryptedFields = [
         'tasks',
     ];
+
+    /**
+     * @var EventManager $eventManager
+     */
+    protected $eventManager;
+
+    public function __construct(Config $config, Logger $logger, EventManager $eventManager)
+    {
+        parent::__construct($config, $logger);
+        $this->eventManager = $eventManager;
+    }
 
     /**
      * Get validation rules for insert queries.
@@ -72,7 +86,7 @@ class Deployments extends DatabaseDomain
         if (empty($data)) {
             throw  new RuntimeException('Deployment not found in database.');
         }
-        $deployment = new Deployment($this->config, $this->logger);
+        $deployment = new Deployment($this->config, $this->logger, $this->eventManager);
         $deployment->setEncryptionKey($this->encryptionKey);
         $deployment->init($data);
         return $deployment;

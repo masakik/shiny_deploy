@@ -30,7 +30,7 @@ class GetDeployments extends WsDataAction
             return false;
         }
 
-        $deployments = new Deployments($this->config, $this->logger);
+        $deployments = new Deployments($this->config, $this->logger, $this->eventManager);
         $deployments->setEnryptionKey($encryptionKey);
         $deploymentsData = $deployments->getDeployments();
         $this->responder->setPayload($deploymentsData);

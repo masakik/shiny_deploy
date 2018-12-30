@@ -42,7 +42,7 @@ abstract class Worker extends ShinyGearsWorker
         $this->logger->info('Starting worker. (Name: ' . $workerName . ')');
 
         // init event manager:
-        $eventManagerFactory = new EventManagerFactory;
+        $eventManagerFactory = new EventManagerFactory($this->config, $this->logger);
         $this->eventManager = $eventManagerFactory->make();
 
         parent::__construct($config, $poolName, $workerName);

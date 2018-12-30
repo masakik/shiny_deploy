@@ -21,4 +21,14 @@ class SshCommand extends Task
     {
         $this->name = 'SSH Command';
     }
+
+    /**
+     * @inheritdoc
+     */
+    public function subscribeToEvents(): void
+    {
+        $this->eventManager->on('deploymentStarted', function ($deployment) {
+            // @todo Register actual stuff...
+        });
+    }
 }

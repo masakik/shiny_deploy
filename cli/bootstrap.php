@@ -12,5 +12,5 @@ $fileLogger->setMinLevel($config->get('logging.level'));
 $logger->add($fileLogger);
 
 // init event manager:
-$eventManagerFactory = new \ShinyDeploy\Core\EventManagerFactory;
+$eventManagerFactory = new \ShinyDeploy\Core\EventManagerFactory($config, $logger);
 $eventManager = $eventManagerFactory->make();

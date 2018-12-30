@@ -33,7 +33,7 @@ class Deploy extends ApiAction
         $encryptionKey = $encryption->decrypt($apiKeyData['encryption_key'], $decryptionPassword);
 
         // get deployment:
-        $deployments = new Deployments($this->config, $this->logger);
+        $deployments = new Deployments($this->config, $this->logger, $this->eventManager);
         $deployments->setEnryptionKey($encryptionKey);
         /** @var Deployment $deployment */
         $deployment = $deployments->getDeployment($apiKeyData['deployment_id']);
@@ -53,7 +53,7 @@ class Deploy extends ApiAction
         // start requested deploy:
         $nullResponder = new NullResponder($this->config, $this->logger);
         $deployment->setLogResponder($nullResponder);
-        $result = $deployment->deploy(false);
+        $result = $deployment->deploy(false, 'api');
 
         // log result:
         if ($result === true) {

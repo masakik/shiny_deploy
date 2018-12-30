@@ -50,13 +50,13 @@ class Deploy extends WsWorkerAction
         $logId = $deploymentLogs->logDeploymentStart($deploymentId, 'GUI');
 
         // Start deployment
-        $deployments = new Deployments($this->config, $this->logger);
+        $deployments = new Deployments($this->config, $this->logger, $this->eventManager);
         $deployments->setEnryptionKey($encryptionKey);
         $deployment = $deployments->getDeployment($deploymentId);
         $deployment->setLogResponder($logResponder);
-        $deployment->setTasksToRun($tasksToRun);
+        $deployment->setSelectedTasks($tasksToRun);
         $logResponder->log('Starting deployment...');
-        $result = $deployment->deploy(false);
+        $result = $deployment->deploy(false, 'gui');
         if ($result === false) {
             $deploymentLogs->logDeploymentError($logId);
             $notificationResponder->send('Deployment failed. Check log for details.', 'danger');
