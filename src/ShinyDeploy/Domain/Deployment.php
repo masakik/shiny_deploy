@@ -9,6 +9,7 @@ use ShinyDeploy\Core\EventManager;
 use ShinyDeploy\Core\Responder;
 use ShinyDeploy\Domain\Database\Repositories;
 use ShinyDeploy\Domain\Database\Servers;
+use ShinyDeploy\Domain\Server\Server;
 use ShinyDeploy\Exceptions\ConnectionException;
 use ShinyDeploy\Exceptions\GitException;
 
@@ -90,6 +91,16 @@ class Deployment extends Domain
     }
 
     /**
+     * Returns log responder.
+     *
+     * @return Responder
+     */
+    public function getLogResponder(): Responder
+    {
+        return $this->logResponder;
+    }
+
+    /**
      * Sets tasks selected by user via GUI.
      *
      * @param array $selectedTasks
@@ -148,6 +159,26 @@ class Deployment extends Domain
     public function getInitiator(): string
     {
         return $this->initiator;
+    }
+
+    /**
+     * Returns server object of deployment.
+     *
+     * @return Server
+     */
+    public function getServer(): Server
+    {
+        return $this->server;
+    }
+
+    /**
+     * Returns repository object of deployment.
+     *
+     * @return Repository
+     */
+    public function getRepository(): Repository
+    {
+        return $this->repository;
     }
 
     /**
