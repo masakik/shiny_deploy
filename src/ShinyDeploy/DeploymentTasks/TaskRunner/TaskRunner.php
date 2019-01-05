@@ -15,6 +15,11 @@ class TaskRunner extends Task
     protected $deployment;
 
     /**
+     * @var \ShinyDeploy\Domain\Repository $repository
+     */
+    protected $repository;
+
+    /**
      * @var \ShinyDeploy\Responder\WsLogResponder|\ShinyDeploy\Responder\NullResponder $responder
      */
     protected $responder;
@@ -47,6 +52,7 @@ class TaskRunner extends Task
 
         $this->deployment = $deployment;
         $this->responder = $deployment->getLogResponder();
+        $this->repository = $deployment->getRepository();
 
         // Loop through task and execute them
         foreach ($tasksConfigs as $taskConfigData) {
@@ -156,9 +162,99 @@ class TaskRunner extends Task
         return false;
     }
 
+    /**
+     * Loops through all task-actions and executes them.
+     *
+     * @param array $consequents
+     * @return void
+     */
     protected function handleTaskConsequents(array $consequents): void
     {
-        // @todo Implement execution of task consequents..
+        // if there are no consequents there is nothing to do here
+        if (empty($consequents)) {
+            return;
+        }
+
+        // loop through consequents and execute them
+        foreach ($consequents as $action => $arguments) {
+            $this->runTaskAction($action, $arguments);
+        }
+    }
+
+    /**
+     * Runs task action (if known).
+     *
+     * @param string $action
+     * @param $arguments
+     * @return void
+     */
+    protected function runTaskAction(string $action, $arguments): void
+    {
+        switch ($action) {
+            case 'exec':
+                $this->runActionExec($arguments);
+                break;
+            case 'upload':
+                $this->runActionUpload($arguments);
+                break;
+            default:
+                $this->logger->warning('Invalid task action.');
+        }
+    }
+
+    /**
+     * Runs task-action of type "exec" which executes a command on the deployment server.
+     *
+     * @param array $arguments
+     * @return void
+     */
+    protected function runActionExec(array $arguments): void
+    {
+        if (empty($arguments)) {
+            return;
+        }
+
+        $repoDir = $this->repository->getLocalPath();
+        $repoDir = rtrim($repoDir, '/');
+        foreach ($arguments as $command) {
+            $command = str_replace('{$repo_dir}', $repoDir, $command);
+            exec($command, $output, $exitCode);
+            if ($exitCode !== 0) {
+                $this->logger->warning('Deployment task action exited with non 0 code.');
+                $this->logger->debug('Exec output: ' . print_r($output, true));
+            }
+        }
+    }
+
+    /**
+     * Runs task-actions of type "upload". This action adds files to the list of files to upload for the
+     * current deployment.
+     *
+     * @param array $arguments
+     * @return void
+     */
+    protected function runActionUpload(array $arguments): void
+    {
+        if (empty($arguments)) {
+            return;
+        }
+
+        $changedFiles = $this->deployment->getChangedFiles();
+        if (!isset($changedFiles['upload'])) {
+            $changedFiles['upload'] = [];
+        }
+
+        $repoDir = $this->repository->getLocalPath();
+        $repoDir = rtrim($repoDir, '/');
+        foreach ($arguments as $fileToUpload) {
+            $pathToFile = $repoDir . '/' . $fileToUpload;
+            if (!file_exists($pathToFile)) {
+                $this->logger->warning('File to upload does not exists in repository path.');
+                continue;
+            }
+            array_push($changedFiles['upload'], $fileToUpload);
+        }
+        $this->deployment->setChangedFiles($changedFiles);
     }
 
     /**
