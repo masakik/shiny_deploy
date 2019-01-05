@@ -80,5 +80,10 @@ return [
             'name' => 'SSH Command',
             'class' => '\ShinyDeploy\DeploymentTasks\SshCommand\SshCommand',
         ],
+        [
+            'type' => 'task_runner',
+            'name' => 'Task Runner',
+            'class' => '\ShinyDeploy\DeploymentTasks\TaskRunner\TaskRunner',
+        ],
     ],
 ];

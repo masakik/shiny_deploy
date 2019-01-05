@@ -119,6 +119,9 @@ abstract class Task implements TaskInterface
             if (empty($taskEnabled)) {
                 continue;
             }
+            if (!isset($taskMap[$taskId])) {
+                continue;
+            }
             $taskIndex = $taskMap[$taskId];
             array_push($filteredTasks, $taskData[$taskIndex]);
         }

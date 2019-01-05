@@ -29,6 +29,7 @@
         "apix/log": "1.2.0",
         "vlucas/valitron": "1.4.4",
         "hassankhan/config": "1.1.0",
+        "symfony/yaml": "4.2.1",
         "nekudo/shiny_gears": "1.0.3",
         "lcobucci/jwt": "3.2.5",
         "defuse/php-encryption": "2.2.1",

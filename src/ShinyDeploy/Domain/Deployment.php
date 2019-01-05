@@ -142,6 +142,17 @@ class Deployment extends Domain
     }
 
     /**
+     * Sets list of changed files.
+     *
+     * @param array $changedFiles
+     * @return void
+     */
+    public function setChangedFiles(array $changedFiles): void
+    {
+        $this->changedFiles = $changedFiles;
+    }
+
+    /**
      * Checks if deployment is in list mode.
      *
      * @return bool
@@ -264,6 +275,8 @@ class Deployment extends Domain
             return false;
         }
 
+        $this->eventManager->emit('deploymentPreparationCompleted', ['deployment' => $this]);
+
         // If remote server is up to date we can stop right here:
         if ($localRevision === $remoteRevision) {
             if ($listMode === false) {
@@ -273,22 +286,27 @@ class Deployment extends Domain
         }
 
         $this->logResponder->log('Collecting changed files...');
-        $changedFiles = $this->getChangedFilesList($localRevision, $remoteRevision);
+        $this->changedFiles = $this->getChangedFilesList($localRevision, $remoteRevision);
+
+        $this->eventManager->emit('deploymentChangedFilesCollected', ['deployment' => $this]);
 
         // If we are in list mode we can now respond with the list of changed files:
         if ($listMode === true) {
-            $this->changedFiles = $changedFiles;
             return true;
         }
 
         $this->logResponder->log('Sorting changed files...');
-        $sortedChangedFiles = $this->sortFilesByOperation($changedFiles);
+        $this->changedFiles = $this->sortFilesByOperation($this->changedFiles);
+
+        $this->eventManager->emit('deploymentChangedFilesSorted', ['deployment' => $this]);
 
         $this->logResponder->log('Processing changed files...');
-        if ($this->processChangedFiles($sortedChangedFiles) === false) {
+        if ($this->processChangedFiles($this->changedFiles) === false) {
             $this->logResponder->error('Could not process files. Aborting job.');
             return false;
         }
+
+        $this->eventManager->emit('deploymentChangedFilesProcessed', ['deployment' => $this]);
 
         $this->logResponder->log('Updating revision file...');
         if ($this->updateRemoteRevisionFile($localRevision) === false) {
