@@ -246,15 +246,55 @@ class TaskRunner extends Task
 
         $repoDir = $this->repository->getLocalPath();
         $repoDir = rtrim($repoDir, '/');
-        foreach ($arguments as $fileToUpload) {
-            $pathToFile = $repoDir . '/' . $fileToUpload;
-            if (!file_exists($pathToFile)) {
+        $filesToUpload = [];
+        foreach ($arguments as $pathRelative) {
+            $pathAbsolute = $repoDir . '/' . $pathRelative;
+            // if path is neither file or folder we can skip it
+            if (!file_exists($pathAbsolute)) {
                 $this->logger->warning('File to upload does not exists in repository path.');
                 continue;
             }
-            array_push($changedFiles['upload'], $fileToUpload);
+
+            // if path is a file we add it to the list of files to upload
+            if (is_file($pathAbsolute)) {
+                array_push($filesToUpload, $pathRelative);
+                continue;
+            }
+
+            // if path is a folder we collect files from that folder and add them to list of files to upload:
+            $files = $this->listFilesInDirectory($pathAbsolute);
+            $filesToUpload = array_merge($filesToUpload, $files);
         }
+
+        // add new files to list of changed files in current deployment:
+        $changedFiles['upload'] = array_merge($changedFiles['upload'], $filesToUpload);
         $this->deployment->setChangedFiles($changedFiles);
+    }
+
+    /**
+     * Recursively collect list of all files within given folder.
+     *
+     * @param string $pathToDirectory
+     * @return array
+     */
+    private function listFilesInDirectory(string $pathToDirectory): array
+    {
+        $dirIterator = new \RecursiveDirectoryIterator($pathToDirectory);
+        $iterator = new \RecursiveIteratorIterator($dirIterator);
+        $repoDir = $this->repository->getLocalPath();
+        $repoDir = rtrim($repoDir, '/');
+        $files = [];
+        foreach ($iterator as $file) {
+            if ($file->isDir()) {
+                continue;
+            }
+            $pathAbsolute = $file->getPathname();
+            $pathRelative = str_replace($repoDir, '', $pathAbsolute);
+            $pathRelative = trim($pathRelative, '/');
+            array_push($files, $pathRelative);
+        }
+
+        return $files;
     }
 
     /**
