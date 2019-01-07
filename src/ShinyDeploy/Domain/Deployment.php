@@ -128,7 +128,7 @@ class Deployment extends Domain
      */
     public function getTaskData(): array
     {
-        return $this->data['tasks'] ?? [];
+        return empty($this->data['tasks']) ? [] : $this->data['tasks'];
     }
 
     /**
